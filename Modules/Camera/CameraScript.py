@@ -25,7 +25,6 @@ def get_user(name,date,time):
   }
   return user
 
-
 conn = sqlite3.connect('Database/database.db')
 c = conn.cursor()
 fname = "recognizer/trainingData.yml"
