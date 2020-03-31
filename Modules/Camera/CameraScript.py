@@ -2,6 +2,30 @@ import cv2
 import numpy as np
 import sqlite3
 import os
+import json
+import datetime
+
+def load_and_save(user_dic):
+  try:
+    data = json.load(open('data_file.json'))
+  except:
+    data = []
+  data.append(user_dic)
+
+  with open("cash_file.json", "w") as file:
+    json.dump(data, file, indent=2, ensure_ascii=False)
+
+def get_user(name,date,time):
+  user = {
+    "id": ids,
+    "name": name,
+    "Room id": 1,
+    "Date": str(date),
+    "Time": str(time),
+  }
+  return user
+
+
 conn = sqlite3.connect('Database/database.db')
 c = conn.cursor()
 fname = "recognizer/trainingData.yml"
@@ -22,8 +46,11 @@ while True:
     c.execute("select name from users where id = (?);", (ids,))
     result = c.fetchall()
     name = result[0][0]
+    dateT = datetime.datetime.now().date()
+    timeT = datetime.datetime.now().time()
     if conf < 50:
       cv2.putText(img, name, (x+2,y+h-5), cv2.FONT_HERSHEY_SIMPLEX, 1, (150,255,0),2)
+      load_and_save(get_user(name,dateT,timeT))
     else:
       cv2.putText(img, 'No Match', (x+2,y+h-5), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255),2)
   cv2.imshow('Face Recognizer',img)
@@ -32,3 +59,6 @@ while True:
     break
 cap.release()
 cv2.destroyAllWindows()
+
+
+
