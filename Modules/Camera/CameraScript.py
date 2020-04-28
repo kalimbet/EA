@@ -7,7 +7,7 @@ import datetime
 
 def load_and_save(user_dic):
   try:
-    data = json.load(open('data_file.json'))
+    data = json.load(open('cash_file.json'))
   except:
     data = []
   data.append(user_dic)
