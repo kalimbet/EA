@@ -20,14 +20,14 @@ def logUser():
 
 class MyApp(App):
     def build(self):
-        return Button(text= "Login",
+        return Button(text= "Registration",
                       font_size = 24,
                       on_press = self.btn_press,
                       background_color = [1,0,0,1],
                       background_normal = "")
     def btn_press(self, instance):
         instance.text = "Result"
-        #regUser()
-        logUser()
+        regUser()
+        #logUser()
 if __name__ == "__main__":
     MyApp().run()
