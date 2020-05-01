@@ -7,12 +7,12 @@ import datetime
 
 def load_and_save(user_dic):
   try:
-    data = json.load(open('cash_file.json'))
+    data = json.load(open('cashe_file.json'))
   except:
     data = []
   data.append(user_dic)
 
-  with open("cash_file.json", "w") as file:
+  with open("cashe_file.json", "w") as file:
     json.dump(data, file, indent=2, ensure_ascii=False)
 
 def get_user(name,date,time):
