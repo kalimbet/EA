@@ -13,14 +13,13 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 import settings as settings
 import requests
 import json
+import os
 
 kivy.require("1.10.1")
 
 Config.set('graphics', 'resizable', '0')
 Config.set('graphics', 'width','1200')
 Config.set('graphics', 'height', '860')
-
-error_text = ""
 
 
 
@@ -99,8 +98,12 @@ class LoginPageSecond(AnchorLayout):
         self.box_layout1 = BoxLayout(orientation="horizontal", size_hint=[1, .5])
         self.box_layout = BoxLayout(orientation="vertical", size_hint=[None, None], size=[300, 300], spacing=20)
 
-        self.box_layout.add_widget(
-            Image(source="user_" + settings.user_id + ".png", size_hint=[None, None], size=[300, 300]))
+        if os.path.isfile("C:/Users/wikto/PycharmProjects/EA/user_" + settings.user_id + ".png") == False:
+            self.box_layout.add_widget(Image(source="user.png", size_hint=[None, None], size=[300, 300]))
+        else:
+            self.box_layout.add_widget(
+                Image(source="user_" + settings.user_id + ".png", size_hint=[None, None], size=[300, 300]))
+
 
         self.login_confirm_lbl = Label(text="", size_hint=[None, None], size=[300, 50], font_size='30sp')
         self.box_layout.add_widget(self.login_confirm_lbl)
@@ -177,7 +180,11 @@ class FirstPageUser(AnchorLayout):
         self.role_lbl = Label(text="", text_size=self.size, valign="middle", size_hint=[.1, None], halign='left', font_size='20sp')
         self.box_layout.add_widget(self.role_lbl)
 
-        self.box_layout.add_widget(Image(source="user_" + settings.user_id + ".png", size_hint=[None, None], size=[300, 300]))
+        if os.path.isfile("C:/Users/wikto/PycharmProjects/EA/user_" + settings.user_id + ".png") == False:
+            self.box_layout.add_widget(Image(source="user.png", size_hint=[None, None], size=[300, 300]))
+        else:
+            self.box_layout.add_widget(
+                Image(source="user_" + settings.user_id + ".png", size_hint=[None, None], size=[300, 300]))
 
         self.name_surname_lbl = Label(text="", size_hint=[None, None], size=[300, 50], font_size='30sp')
         self.box_layout.add_widget(self.name_surname_lbl)
@@ -186,6 +193,8 @@ class FirstPageUser(AnchorLayout):
         self.box_layout.add_widget(self.date_reg_lbl)
 
         self.box_layout.add_widget(self.box_layout1)
+
+
         self.box_layout.add_widget(Widget())  # Right space
         self.add_widget(self.box_layout)
 
