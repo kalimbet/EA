@@ -7,21 +7,20 @@ import datetime
 
 def load_and_save(user_dic):
   try:
-    data = json.load(open('cashe_file.json'))
+    data = json.load(open('cache_file.json'))
   except:
     data = []
   data.append(user_dic)
 
-  with open("cashe_file.json", "w") as file:
+  with open("cache_file.json", "w") as file:
     json.dump(data, file, indent=2, ensure_ascii=False)
 
-def get_user(name,date,time):
+def get_user(name,date):
   user = {
     "id": ids,
     "name": name,
     "Room id": 1,
-    "Date": str(date),
-    "Time": str(time),
+    "Date time": str(date),
   }
   return user
 
@@ -45,11 +44,10 @@ while True:
     c.execute("select name from users where id = (?);", (ids,))
     result = c.fetchall()
     name = result[0][0]
-    dateT = datetime.datetime.now().date()
-    timeT = datetime.datetime.now().time()
+    dateT = datetime.datetime.now()
     if conf < 50:
       cv2.putText(img, name, (x+2,y+h-5), cv2.FONT_HERSHEY_SIMPLEX, 1, (150,255,0),2)
-      load_and_save(get_user(name,dateT,timeT))
+      load_and_save(get_user(name,dateT))
     else:
       cv2.putText(img, 'No Match', (x+2,y+h-5), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255),2)
   cv2.imshow('Face Recognizer',img)
