@@ -17,9 +17,10 @@ import os
 
 kivy.require("1.10.1")
 
-Config.set('graphics', 'resizable', '0')
-Config.set('graphics', 'width','1200')
-Config.set('graphics', 'height', '860')
+Config.set('graphics', 'fullscreen', 'auto')
+Config.set('graphics', 'window_state', 'maximized')
+#Config.set('graphics', 'width', '1200')
+#Config.set('graphics', 'height', '900')
 
 
 
@@ -27,16 +28,16 @@ class LoginPageFirst(AnchorLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.box_layout1 = BoxLayout(orientation="horizontal", size_hint=[1, .5])
-        self.box_layout = BoxLayout(orientation="vertical", size_hint=[None, None], size=[300, 300], spacing=20)
+        self.box_layout_horizontal = BoxLayout(orientation="horizontal", size_hint=[1, .5])
+        self.box_layout_vertical = BoxLayout(orientation="vertical", size_hint=[None, None], size=[300, 300], spacing=20)
 
-        self.box_layout.add_widget(Image(source="user.png", size_hint=[None, None], size=[300, 300]))
+        self.box_layout_vertical.add_widget(Image(source="user.png", size_hint=[None, None], size=[300, 300]))
 
         self.login_confirm_lbl = Label(text="", size_hint=[None, None], size=[300, 50], font_size='30sp')
-        self.box_layout.add_widget(self.login_confirm_lbl)
+        self.box_layout_vertical.add_widget(self.login_confirm_lbl)
 
         self.user_email = TextInput(text="Email", size_hint=[None, None], size=[300, 50], background_color=[.92, .92, .92, .92], halign="center", font_size='20sp')
-        self.box_layout.add_widget(self.user_email)
+        self.box_layout_vertical.add_widget(self.user_email)
 
 
 
@@ -49,15 +50,16 @@ class LoginPageFirst(AnchorLayout):
             size_hint=[None, None],
             size=[300, 80],
         )
-        self.box_layout.add_widget(self.login_confirm_btn)
+        self.box_layout_vertical.add_widget(self.login_confirm_btn)
 
 
         self.result_lbl = Label(text="", size_hint=[None, None], size=[300, 50])
-        self.box_layout.add_widget(self.result_lbl)
-        self.box_layout1.add_widget(Widget())  # left space
-        self.box_layout1.add_widget(self.box_layout)
-        self.box_layout1.add_widget(Widget())  # Right space
-        self.add_widget(self.box_layout1)
+        self.box_layout_vertical.add_widget(self.result_lbl)
+
+        self.box_layout_horizontal.add_widget(Widget())  # left space
+        self.box_layout_horizontal.add_widget(self.box_layout_vertical)
+        self.box_layout_horizontal.add_widget(Widget())  # Right space
+        self.add_widget(self.box_layout_horizontal)
 
     def login_confirm_btn_press(self, instance):
         user_email = self.user_email.text
@@ -92,25 +94,18 @@ class LoginPageSecond(AnchorLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-
-
     def show_page(self):
-        self.box_layout1 = BoxLayout(orientation="horizontal", size_hint=[1, .5])
-        self.box_layout = BoxLayout(orientation="vertical", size_hint=[None, None], size=[300, 300], spacing=20)
+        self.box_layout_horizontal = BoxLayout(orientation="horizontal", size_hint=[1, .5])
+        self.box_layout_vertical = BoxLayout(orientation="vertical", size_hint=[None, None], size=[300, 300], spacing=20)
 
-        if os.path.isfile("C:/Users/wikto/PycharmProjects/EA/user_" + settings.user_id + ".png") == False:
-            self.box_layout.add_widget(Image(source="user.png", size_hint=[None, None], size=[300, 300]))
-        else:
-            self.box_layout.add_widget(
-                Image(source="user_" + settings.user_id + ".png", size_hint=[None, None], size=[300, 300]))
-
+        self.showAvatar()
 
         self.login_confirm_lbl = Label(text="", size_hint=[None, None], size=[300, 50], font_size='30sp')
-        self.box_layout.add_widget(self.login_confirm_lbl)
+        self.box_layout_vertical.add_widget(self.login_confirm_lbl)
 
         self.password = TextInput(text="Password", size_hint=[None, None], size=[300, 50],
                                   background_color=[.92, .92, .92, .92], halign='center', password=1, font_size='20sp')
-        self.box_layout.add_widget(self.password)
+        self.box_layout_vertical.add_widget(self.password)
 
         self.login_btn = Button(
             text="Login",
@@ -121,16 +116,23 @@ class LoginPageSecond(AnchorLayout):
             size_hint=[None, None],
             size=[300, 80],
         )
-        self.box_layout.add_widget(self.login_btn)
+        self.box_layout_vertical.add_widget(self.login_btn)
 
         self.result_lbl = Label(text="", size_hint=[None, None], size=[300, 50])
-        self.box_layout.add_widget(self.result_lbl)
+        self.box_layout_vertical.add_widget(self.result_lbl)
 
-        self.box_layout1.add_widget(Widget())  # left space
-        self.box_layout1.add_widget(self.box_layout)
-        self.box_layout1.add_widget(Widget())  # Right space
-        self.add_widget(self.box_layout1)
+        self.box_layout_horizontal.add_widget(Widget())  # left space
+        self.box_layout_horizontal.add_widget(self.box_layout_vertical)
+        self.box_layout_horizontal.add_widget(Widget())  # Right space
+        self.add_widget(self.box_layout_horizontal)
 
+
+    def showAvatar(self):
+        if os.path.isfile("C:/Users/wikto/PycharmProjects/EA/user_" + settings.user_id + ".png") == False:
+            self.box_layout_vertical.add_widget(Image(source="user.png", size_hint=[None, None], size=[300, 300]))
+        else:
+            self.box_layout_vertical.add_widget(
+                Image(source="user_" + settings.user_id + ".png", size_hint=[None, None], size=[300, 300]))
 
     def login_btn_press(self, instance):
         user_email = settings.email
@@ -155,7 +157,6 @@ class LoginPageSecond(AnchorLayout):
             settings.name = str(s["name"])
             settings.registration_date = str(s['registrationdate'])
             ea_app.first_page_user.show_page()
-            ea_app.first_page_user.show_info_about_user()
             return True
         else:
             result_server = json.loads(x.content)
@@ -174,29 +175,70 @@ class FirstPageUser(AnchorLayout):
 
     def show_page(self):
 
-        self.box_layout = BoxLayout(orientation="vertical", size_hint=[1, 1], spacing=20)
-        self.box_layout1 = BoxLayout(orientation="horizontal", size_hint=[1, 1])
+        self.box_layout_general_horizontal = BoxLayout(orientation="horizontal")
 
-        self.role_lbl = Label(text="", text_size=self.size, valign="middle", size_hint=[.1, None], halign='left', font_size='20sp')
-        self.box_layout.add_widget(self.role_lbl)
+        self.box_layout_general_vertical_left = BoxLayout(orientation="vertical", size_hint=(.3, 1))
+        self.box_layout_general_vertical_right = BoxLayout(orientation="vertical", size_hint=(.7, 1))
+
+        self.box_layout_horizontal_left_up_menu = BoxLayout(orientation="horizontal", size_hint=(1, .05))
+        self.box_layout_vertical_left_up_side = BoxLayout(orientation="vertical", size_hint=(1, .45))
+        self.box_layout_vertical_left_down_side = BoxLayout(orientation="vertical", size_hint=(1, .5))
+
+        self.box_layout_horizontal_right_up_menu = BoxLayout(orientation="horizontal", size_hint=(1, .05))
+        self.box_layout_horizontal_right_up_side = BoxLayout(orientation="horizontal", size_hint=(1, .45))
+        self.box_layout_horizontal_right_down_side = BoxLayout(orientation="horizontal", size_hint=(1, .5))
+
+
+        self.showLeftUpSide()# Show left up side
+        self.showLeftDownSide()# Show left down side
+        self.showRightUpSide()
+        self.showRightDownSide()
+
+        self.box_layout_general_horizontal.add_widget(self.box_layout_general_vertical_left) # Left general side
+        self.box_layout_general_vertical_left.add_widget(self.box_layout_horizontal_left_up_menu)
+        self.box_layout_general_vertical_left.add_widget(self.box_layout_vertical_left_up_side)
+        self.box_layout_general_vertical_left.add_widget(self.box_layout_vertical_left_down_side)
+
+        self.box_layout_general_horizontal.add_widget(self.box_layout_general_vertical_right) # Right general side
+        self.box_layout_general_vertical_right.add_widget(self.box_layout_horizontal_right_up_menu)
+        self.box_layout_general_vertical_right.add_widget(self.box_layout_horizontal_right_up_side)
+        self.box_layout_general_vertical_right.add_widget(self.box_layout_horizontal_right_down_side)
+
+        self.add_widget(self.box_layout_general_horizontal)
+
+
+        #self.box_layout_general_horizontal.add_widget(Widget())  # mid space
+
+    def showLeftUpSide(self):
+        self.role_lbl = Label(text="", text_size=self.size, valign="middle", size_hint=[.4, 1], halign='left',
+                              font_size='20sp')
+        self.box_layout_horizontal_left_up_menu.add_widget(self.role_lbl)
+        self.box_layout_horizontal_left_up_menu.add_widget(Widget())
 
         if os.path.isfile("C:/Users/wikto/PycharmProjects/EA/user_" + settings.user_id + ".png") == False:
-            self.box_layout.add_widget(Image(source="user.png", size_hint=[None, None], size=[300, 300]))
+            self.box_layout_vertical_left_up_side.add_widget(
+                Image(source="user.png", size_hint=[1, .6]))
         else:
-            self.box_layout.add_widget(
-                Image(source="user_" + settings.user_id + ".png", size_hint=[None, None], size=[300, 300]))
+            self.box_layout_vertical_left_up_side.add_widget(
+                Image(source="user_" + settings.user_id + ".png", size_hint=[1, .8]))
 
-        self.name_surname_lbl = Label(text="", size_hint=[None, None], size=[300, 50], font_size='30sp')
-        self.box_layout.add_widget(self.name_surname_lbl)
-
-        self.date_reg_lbl = Label(text="", size_hint=[None, None], size=[300, 50])
-        self.box_layout.add_widget(self.date_reg_lbl)
-
-        self.box_layout.add_widget(self.box_layout1)
+        self.name_surname_lbl = Label(text="", size_hint=[1, .2], font_size='30sp')
+        self.box_layout_vertical_left_up_side.add_widget(self.name_surname_lbl)
 
 
-        self.box_layout.add_widget(Widget())  # Right space
-        self.add_widget(self.box_layout)
+        self.show_info_about_user()
+
+    def showLeftDownSide(self):
+        self.box_layout_vertical_left_down_side.add_widget(Button(text="Some text"))
+
+    def showRightUpSide(self):
+        self.box_layout_horizontal_right_up_menu.add_widget(Button(text="Menu"))
+        self.box_layout_horizontal_right_up_side.add_widget(Button(text="A"))
+        self.box_layout_horizontal_right_up_side.add_widget(Button(text="B"))
+        self.box_layout_horizontal_right_up_side.add_widget(Button(text="C"))
+
+    def showRightDownSide(self):
+        self.box_layout_horizontal_right_down_side.add_widget(Button(text="Right down side"))
 
     def regUser(self):
         url = 'http://localhost:3000/api/register-user'
