@@ -15,10 +15,9 @@ def load_and_save(user_dic):
   with open("cache_file.json", "w") as file:
     json.dump(data, file, indent=2, ensure_ascii=False)
 
-def get_user(name,date):
+def get_user(date):
   user = {
     "id": ids,
-    "name": name,
     "Room id": 1,
     "Date time": str(date),
   }
@@ -41,13 +40,10 @@ while True:
   for (x,y,w,h) in faces:
     cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),3)
     ids,conf = recognizer.predict(gray[y:y+h,x:x+w])
-    c.execute("select name from users where id = (?);", (ids,))
-    result = c.fetchall()
-    name = result[0][0]
     dateT = datetime.datetime.now()
     if conf < 50:
-      cv2.putText(img, name, (x+2,y+h-5), cv2.FONT_HERSHEY_SIMPLEX, 1, (150,255,0),2)
-      load_and_save(get_user(name,dateT))
+      cv2.putText(img, str(ids), (x+2,y+h-5), cv2.FONT_HERSHEY_SIMPLEX, 1, (150,255,0),2)
+      load_and_save(get_user(dateT))
     else:
       cv2.putText(img, 'No Match', (x+2,y+h-5), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255),2)
   cv2.imshow('Face Recognizer',img)
