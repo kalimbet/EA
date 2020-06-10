@@ -1,6 +1,3 @@
-import time
-from urllib.request import urlopen
-
 import kivy
 from kivy.app import App
 from kivy.uix.dropdown import DropDown
@@ -18,7 +15,10 @@ from kivy.uix.screenmanager import ScreenManager, Screen
 import settings as settings
 import requests
 import json
+import zipfile
 import os
+import shutil
+import cv2
 from kivy.graphics import Color, Rectangle
 from kivy.core.window import Window
 from kivy.uix.floatlayout import FloatLayout
@@ -30,6 +30,7 @@ import datetime
 from datetime import datetime as DT
 from kivy.uix.label import Label
 from kivy.lang.builder import Builder
+
 
 kivy.require("1.10.1")
 
@@ -52,7 +53,6 @@ Builder.load_string('''
             Button:
                 text: "Load"
                 on_release: root.load(filechooser.path, filechooser.selection)
-
 
 ''')
 
@@ -222,6 +222,8 @@ class GeneralPage(AnchorLayout):
         self.canvas.add(Color(.13, .13, .13, ))
         self.canvas.add(Rectangle(size=size_window))
 
+
+
         self.box_layout_general_vertical = BoxLayout(orientation="vertical")
         self.box_layout_general_horizontal_up = BoxLayout(orientation="horizontal", padding=[20, 10])
         self.box_layout_general_horizontal_down = BoxLayout(orientation="horizontal", padding=[20, 10])
@@ -313,46 +315,51 @@ class GeneralPage(AnchorLayout):
             self.box_layout_general_horizontal_down.add_widget(BoxLayout(orientation="vertical", size_hint=[1, 1]))
 
     def page_question_left_down_side(self):
+        self.get_task_status_employee()
         self.box_left_down = BoxLayout(orientation="vertical", size_hint=[.3, 1])
-        if settings.question_status == 0:
+        if settings.question_status == '2':
             self.question_lbl = Label(text=settings.question_text, text_size=(300, 60), size_hint=[1, .3],
                                       font_size='20sp', halign="left", valign="top")
             self.box_left_down.add_widget(self.question_lbl)
             self.box_button = BoxLayout(orientation="horizontal", size_hint=[1, None])
 
-            self.yes_btn = Button(
+            yes_btn = Button(
                 text="Yes",
                 font_size=30,
-                on_press=self.yes_btn_press,
+                #on_press=self.yes_btn_press,
                 # background_color=[.13, .13, .13],
                 background_normal='button.png',
                 background_down='button_down.png',
                 size_hint=[None, None],
                 size=[200, 80],
             )
+            yes_btn.bind(on_release=lambda btn: self.yes_btn_press())
 
-            self.no_btn = Button(
+            no_btn = Button(
                 text="No",
                 font_size=30,
-                on_press=self.no_btn_press,
+                #on_press=self.no_btn_press,
                 # background_color=[.13, .13, .13],
                 background_normal='button.png',
                 background_down='button_down.png',
                 size_hint=[None, None],
                 size=[200, 80],
             )
-            self.box_button.add_widget(Widget())
-            self.box_button.add_widget(self.yes_btn)
-            self.box_button.add_widget(self.no_btn)
-            self.box_button.add_widget(Widget())
+            no_btn.bind(on_release=lambda btn: self.no_btn_press())
+
+            self.box_button.add_widget(BoxLayout(size_hint=[.1, 1]))
+            self.box_button.add_widget(yes_btn)
+            self.box_button.add_widget(BoxLayout(size_hint=[.1, 1]))
+            self.box_button.add_widget(no_btn)
+            self.box_button.add_widget(BoxLayout(size_hint=[.1, 1]))
             self.box_left_down.add_widget(self.box_button)
             self.box_left_down.add_widget(Widget())
-        elif settings.question_status == 1:
+        elif settings.question_status == '1':
             self.question_lbl_alt = Label(text=settings.question_text_yes, text_size=(300, 60), size_hint=[1, .3],
                                           font_size='20sp', halign="left", valign="top")
             self.box_left_down.add_widget(self.question_lbl_alt)
             self.box_left_down.add_widget(Widget())
-        elif settings.question_status == 2:
+        elif settings.question_status == '0':
             self.question_lbl_alt = Label(text=settings.question_text_no, text_size=(300, 60), size_hint=[1, .3],
                                           font_size='20sp', halign="left", valign="top")
             self.box_left_down.add_widget(self.question_lbl_alt)
@@ -362,9 +369,9 @@ class GeneralPage(AnchorLayout):
 
     def page_1_right_up_side(self):
         if settings.role_id == "1":
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="A"))
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="B"))
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="C"))
+            self.page_1_employee_right_side_section_a()
+            self.page_1_employee_right_side_section_b()
+            self.page_1_employee_right_side_section_c()
         elif settings.role_id == "2":
             self.page_1_admin_right_side_section_a()
             self.page_1_admin_right_side_section_b()
@@ -372,9 +379,9 @@ class GeneralPage(AnchorLayout):
             self.page_1_project_manager_section_a()
             self.page_1_project_manager_section_b()
         elif settings.role_id == "4":
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="A"))
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="B"))
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="C"))
+            self.page_1_leader_right_side_section_a()
+            self.page_1_leader_right_side_section_b()
+            self.page_1_leader_right_side_section_c()
         elif settings.role_id == "5":
             self.box_layout_horizontal_right_up_side.add_widget(Button(text="A"))
             self.box_layout_horizontal_right_up_side.add_widget(Button(text="B"))
@@ -395,7 +402,8 @@ class GeneralPage(AnchorLayout):
             box_admin_vertical_section_a.add_widget(Widget())
             box_admin_vertical_section_a.add_widget(Image(source="user.png", size_hint=[1, .8]))
 
-        nam = settings.selected_user_name + "  " + settings.selected_user_surname
+        nam = settings.selected_user_name
+        #nam = settings.selected_user_name + "  " + settings.selected_user_surname
         name_surname_btn = Button(
             text=nam,
             font_size=30,
@@ -439,16 +447,16 @@ class GeneralPage(AnchorLayout):
         )
         update_btn.bind(on_release=lambda btn: self.load_upd_page())
 
-        train_recognizer_btn = Button(
-            text="Train recognizer",
-            font_size=30,
-            # on_press=self.no_btn_press,
-            # background_color=[.13, .13, .13],
-            background_normal='button.png',
-            background_down='button_down.png',
-            size_hint=[None, None],
-            size=[270, 100],
-        )
+        # train_recognizer_btn = Button(
+        #     text="",
+        #     font_size=30,
+        #     # on_press=self.no_btn_press,
+        #     background_color=[.13, .13, .13, 1],
+        #     background_normal='',
+        #     #background_down='button_down.png',
+        #     size_hint=[None, None],
+        #     size=[270, 100],
+        # )
 
         view_user_info_btn = Button(
             text="View user info",
@@ -482,6 +490,7 @@ class GeneralPage(AnchorLayout):
             size_hint=[None, None],
             size=[270, 100],
         )
+        delete_user_btn.bind(on_release=lambda btn: self.delete_user())
 
         box_vertical_section_1.add_widget(Widget())
         box_vertical_section_1.add_widget(registration_btn)
@@ -489,16 +498,19 @@ class GeneralPage(AnchorLayout):
         box_vertical_section_1.add_widget(update_btn)
         box_vertical_section_1.add_widget(Widget())
 
+
         box_vertical_section_2.add_widget(Widget())
-        box_vertical_section_2.add_widget(train_recognizer_btn)
+        box_vertical_section_2.add_widget(groups_btn)
         box_vertical_section_2.add_widget(Widget())
-        box_vertical_section_2.add_widget(view_user_info_btn)
+        box_vertical_section_2.add_widget(delete_user_btn)
         box_vertical_section_2.add_widget(Widget())
 
         box_vertical_section_3.add_widget(Widget())
-        box_vertical_section_3.add_widget(groups_btn)
+        box_vertical_section_3.add_widget(BoxLayout(size_hint=[None, None], size=[270, 100]))
+        # box_vertical_section_2.add_widget(train_recognizer_btn)
         box_vertical_section_3.add_widget(Widget())
-        box_vertical_section_3.add_widget(delete_user_btn)
+        #box_vertical_section_3.add_widget(view_user_info_btn)
+        box_vertical_section_3.add_widget(BoxLayout(size_hint=[None, None], size=[270, 100]))
         box_vertical_section_3.add_widget(Widget())
 
         box_horizontal_section.add_widget(box_vertical_section_1)
@@ -580,11 +592,11 @@ class GeneralPage(AnchorLayout):
         self.box_layout_general_horizontal_down.add_widget(bx_vertical_down_right_side)
 
     def page_1_project_manager_down_side(self):
-        #self.get_groups()
+        self.get_all_groups()
         bx_vertical_down_right_side = BoxLayout(orientation="vertical", size_hint=[.7, 1])
         bx_header = BoxLayout(orientation="horizontal", size_hint=[1, .07])
         bx_content = BoxLayout(orientation="horizontal", size_hint=[1, .93])
-        bx_header.add_widget(Button(text="Group d", size_hint=[1, None], size=[0, 40], font_size=30,
+        bx_header.add_widget(Button(text="Group id", size_hint=[1, None], size=[0, 40], font_size=30,
                                     background_color=(0, 0, 0, 1), background_normal=''))
         bx_header.add_widget(Button(text="Name of group", size_hint=[1, None], size=[0, 40], font_size=30,
                                     background_color=(0, 0, 0, 1), background_normal=''))
@@ -596,45 +608,41 @@ class GeneralPage(AnchorLayout):
                                     background_color=(0, 0, 0, 1), background_normal=''))
         bx_header.add_widget(Button(text="From date", size_hint=[1, None], size=[0, 40], font_size=30,
                                     background_color=(0, 0, 0, 1), background_normal=''))
-        bx_header.add_widget(Button(text="Average rating", size_hint=[1, None], size=[0, 40], font_size=30,
-                                    background_color=(0, 0, 0, 1), background_normal=''))
-        bx_header.add_widget(Button(text="Task status", size_hint=[1, None], size=[0, 40], font_size=30,
-                                    background_color=(0, 0, 0, 1), background_normal=''))
+
         layout = GridLayout(cols=1, padding=10, spacing=10,
                             size_hint=(1, None), width=500)
 
         layout.bind(minimum_height=layout.setter('height'))
 
-        for i in range(len(settings.list_of_groups)):
-            item = settings.list_of_groups[i]
-            if settings.user_id == str(item["groupid"]):
-                bx_item = BoxLayout(orientation="horizontal", size=(0, 40),
-                                    size_hint=(1, None))
+        for i in range(len(settings.list_of_all_groups)):
+            item = settings.list_of_all_groups[i]
+            bx_item = BoxLayout(orientation="horizontal", size=(0, 40),
+                                size_hint=(1, None))
 
-                btn = Button(text=str(item["groupname"]), font_size=25,
-                             background_color=(.01, .66, .96, 1), background_normal='')
-                bx_item.add_widget(btn)
-                btn = Button(text=str(item["leaderid"]), font_size=25,
-                             background_color=(.01, .66, .96, 1), background_normal='')
+            btn = Button(text=str(item["groupid"]), font_size=25,
+                         background_color=(.01, .66, .96, 1), background_normal='')
+            bx_item.add_widget(btn)
 
-                bx_item.add_widget(btn)
-                btn = Button(text=str(item["leadername"]), font_size=25,
-                             background_color=(.01, .66, .96, 1), background_normal='')
-                bx_item.add_widget(btn)
-                btn = Button(text=str(item["leadersurname"]), font_size=25,
-                             background_color=(.01, .66, .96, 1), background_normal='')
-                bx_item.add_widget(btn)
+            btn = Button(text=str(item["groupname"]), font_size=25,
+                         background_color=(.01, .66, .96, 1), background_normal='')
+            bx_item.add_widget(btn)
+            btn = Button(text=str(item["groupleaderid"]), font_size=25,
+                         background_color=(.01, .66, .96, 1), background_normal='')
 
-                btn = Button(text=str(item["fromdate"]), font_size=25,
-                             background_color=(.01, .66, .96, 1), background_normal='')
-                bx_item.add_widget(btn)
-                btn = Button(text=str(item["averagerating"]), font_size=25,
-                             background_color=(.01, .66, .96, 1), background_normal='')
-                bx_item.add_widget(btn)
-                btn = Button(text=str(item["taskstatus"]), font_size=25,
-                             background_color=(.01, .66, .96, 1), background_normal='')
-                bx_item.add_widget(btn)
-                layout.add_widget(bx_item)
+            bx_item.add_widget(btn)
+            btn = Button(text=str(item["name"]), font_size=25,
+                         background_color=(.01, .66, .96, 1), background_normal='')
+            bx_item.add_widget(btn)
+            btn = Button(text=str(item["surname"]), font_size=25,
+                         background_color=(.01, .66, .96, 1), background_normal='')
+            bx_item.add_widget(btn)
+
+            btn = Button(text=str(item["registrationdate"]), font_size=25,
+                         background_color=(.01, .66, .96, 1), background_normal='')
+            bx_item.add_widget(btn)
+
+            layout.add_widget(bx_item)
+
 
         root = ScrollView(size_hint=(1, 1),
                           pos_hint={'center_x': .5, 'center_y': .5}, do_scroll_x=False)
@@ -731,13 +739,93 @@ class GeneralPage(AnchorLayout):
         box_vertical_section_b.add_widget(box_horizontal_section)
         self.box_layout_horizontal_right_up_side.add_widget(box_vertical_section_b)
 
+    def page_1_employee_right_side_section_a(self):
+        self.get_average_for_week()
+        box_vertical_left = BoxLayout(orientation="vertical", size_hint=[1, 1])
+        box_vertical_left.add_widget(
+            Button(text="Average rating for week", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        box_vertical_left.add_widget(Button(text=settings.employee_average_rating_for_week + ' / ' + settings.average_max_week, background_color=[.13, .13, .13, 1],
+            background_normal='', font_size=30))
+        box_vertical_left.add_widget(
+            Button(text="", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        self.box_layout_horizontal_right_up_side.add_widget(box_vertical_left)
+        print("test")
+
+    def page_1_employee_right_side_section_b(self):
+        box_vertical_left = BoxLayout(orientation="vertical", size_hint=[1, 1])
+        box_vertical_left.add_widget(
+            Button(text="Average rating for month", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        box_vertical_left.add_widget(Button(text=settings.employee_average_rating_for_month + ' / ' + settings.average_max_month,
+                                     background_color=[.13, .13, .13, 1],
+                                     background_normal='', font_size=30))
+        box_vertical_left.add_widget(
+            Button(text="", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        self.box_layout_horizontal_right_up_side.add_widget(box_vertical_left)
+
+    def page_1_employee_right_side_section_c(self):
+        box_vertical_left = BoxLayout(orientation="vertical", size_hint=[1, 1])
+        box_vertical_left.add_widget(
+            Button(text="Average rating for month", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        box_vertical_left.add_widget(Button(text=settings.employee_average_rating_for_year+ ' / ' + settings.average_max_year,
+                                     background_color=[.13, .13, .13, 1],
+                                     background_normal='', font_size=30))
+        box_vertical_left.add_widget(
+            Button(text="", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        self.box_layout_horizontal_right_up_side.add_widget(box_vertical_left)
+
+    def page_1_leader_right_side_section_a(self):
+        self.get_average_for_week()
+        box_vertical_left = BoxLayout(orientation="vertical", size_hint=[1, 1])
+        box_vertical_left.add_widget(
+            Button(text="Average rating for week", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        box_vertical_left.add_widget(Button(text=settings.employee_average_rating_for_week + ' / ' + settings.average_max_week, background_color=[.13, .13, .13, 1],
+            background_normal='', font_size=30))
+        box_vertical_left.add_widget(
+            Button(text="", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        self.box_layout_horizontal_right_up_side.add_widget(box_vertical_left)
+        print("test")
+
+    def page_1_leader_right_side_section_b(self):
+        box_vertical_left = BoxLayout(orientation="vertical", size_hint=[1, 1])
+        box_vertical_left.add_widget(
+            Button(text="Average rating for month", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        box_vertical_left.add_widget(Button(text=settings.employee_average_rating_for_month + ' / ' + settings.average_max_month,
+                                     background_color=[.13, .13, .13, 1],
+                                     background_normal='', font_size=30))
+        box_vertical_left.add_widget(
+            Button(text="", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        self.box_layout_horizontal_right_up_side.add_widget(box_vertical_left)
+
+    def page_1_leader_right_side_section_c(self):
+        box_vertical_left = BoxLayout(orientation="vertical", size_hint=[1, 1])
+        box_vertical_left.add_widget(
+            Button(text="Average rating for month", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        box_vertical_left.add_widget(Button(text=settings.employee_average_rating_for_year+ ' / ' + settings.average_max_year,
+                                     background_color=[.13, .13, .13, 1],
+                                     background_normal='', font_size=30))
+        box_vertical_left.add_widget(
+            Button(text="", background_color=[0, 0, 0, 1],
+                   background_normal='', font_size=30, size_hint=[1, .2]))
+        self.box_layout_horizontal_right_up_side.add_widget(box_vertical_left)
+
     def page_2_down_side(self):
         if settings.role_id == "1":
             self.page_question_left_down_side()
             self.page_2_employee_right_down_side()
         elif settings.role_id == "2":
             self.box_layout_general_horizontal_down.add_widget(BoxLayout(orientation="vertical", size_hint=[.3, 1]))
-            self.page_2_employee_right_down_side()
+            self.page_2_admin_right_down_side()
         elif settings.role_id == "3":
             self.box_layout_general_horizontal_down.add_widget(BoxLayout(orientation="vertical", size_hint=[.3, 1]))
         elif settings.role_id == "4":
@@ -751,9 +839,8 @@ class GeneralPage(AnchorLayout):
         if settings.role_id == "1":
             self.page_2_employee_right_side_section_a()
         elif settings.role_id == "2":
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="1 page 2"))
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="2 page 2"))
-            self.box_layout_horizontal_right_up_side.add_widget(Button(text="3 page 2"))
+            self.page_2_admin_right_side_section_a()
+            self.page_2_admin_right_side_section_b()
         elif settings.role_id == "3":
             self.page_2_project_manager_section_a()
             self.page_2_project_manager_section_b()
@@ -852,6 +939,111 @@ class GeneralPage(AnchorLayout):
         bx_vertical_down_right_side.add_widget(bx_content)
 
         self.box_layout_general_horizontal_down.add_widget(bx_vertical_down_right_side)
+
+    def page_2_admin_right_down_side(self):
+        self.get_last_week()
+        bx_vertical_down_right_side = BoxLayout(orientation="vertical", size_hint=[.7, 1])
+        bx_header = BoxLayout(orientation="horizontal", size_hint=[1, .07])
+        bx_content = BoxLayout(orientation="horizontal", size_hint=[1, .93])
+
+
+        bx_header.add_widget(Button(text="Date", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        bx_header.add_widget(Button(text="Day", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        bx_header.add_widget(Button(text="Time on rest", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        bx_header.add_widget(Button(text="Time on work", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        bx_header.add_widget(Button(text="Rating for day", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        layout = GridLayout(cols=1, padding=10, spacing=10,
+                            size_hint=(1, None), width=500)
+
+        layout.bind(minimum_height=layout.setter('height'))
+
+       # print(settings.list_user_last_week)
+
+        for i in range(len(settings.list_user_last_week)):
+            item = settings.list_user_last_week[i]
+            if settings.selected_user_id == str(item["userid"]):
+                bx_item = BoxLayout(orientation="horizontal", size=(0, 40),
+                                    size_hint=(1, None))
+
+                dateConverted = DT.strptime(item["date"].split('T')[0], "%Y-%m-%d")
+                weekDay = dateConverted.weekday()
+
+                btn = Button(text=str(item["date"].split('T')[0]), font_size=25,
+                             background_color=(.01, .66, .96, 1), background_normal='')
+                bx_item.add_widget(btn)
+
+                btn = Button(text=str(settings.get_name_week(str(weekDay))), font_size=25,
+                             background_color=(.01, .66, .96, 1), background_normal='')
+                bx_item.add_widget(btn)
+
+                btn = Button(text=str(item["timeonrest"]), font_size=25,
+                             background_color=(.01, .66, .96, 1), background_normal='')
+                bx_item.add_widget(btn)
+                btn = Button(text=str(item["timeonwork"]), font_size=25,
+                             background_color=(.01, .66, .96, 1), background_normal='')
+                bx_item.add_widget(btn)
+
+                btn = Button(text=str(item["rating"]), font_size=25,
+                             background_color=(.01, .66, .96, 1), background_normal='')
+                bx_item.add_widget(btn)
+                layout.add_widget(bx_item)
+
+        root = ScrollView(size_hint=(1, 1),
+                          pos_hint={'center_x': .5, 'center_y': .5}, do_scroll_x=False)
+        root.add_widget(layout)
+        bx_content.add_widget(root)
+
+        bx_vertical_down_right_side.add_widget(bx_header)
+        bx_vertical_down_right_side.add_widget(bx_content)
+
+        self.box_layout_general_horizontal_down.add_widget(bx_vertical_down_right_side)
+
+    def page_2_admin_right_side_section_a(self):
+        box_vertical_left = BoxLayout(orientation="vertical", size_hint=[1, .7])
+        bx = BoxLayout(orientation="horizontal", size_hint=[.8, .05])
+        for i in range(len(settings.list_employee_for_days)):
+            bx.add_widget(Button(text=str(settings.list_employee_for_days[i]), size_hint=[None, None], size=[100, 30],
+                                 background_color=(0, 0, 0, 1), background_normal=''))
+            bx.add_widget(Button(text="", size_hint=[None, None], size=[100, 30], background_color=(0, 0, 0, 1),
+                                 background_normal=''))
+        box_vertical_left.add_widget(GraphWidgetForDays())
+        box_vertical_left.add_widget(bx)
+        self.box_layout_horizontal_right_up_side.add_widget(box_vertical_left)
+
+    def page_2_admin_right_side_section_b(self):
+        box_admin_vertical_section_a = BoxLayout(orientation="vertical", size_hint=[.3, 1], padding=[0, 0, 0, 0])
+        box_layout_for_btn = BoxLayout(orientation="horizontal", size_hint=[1, .28], padding=[10, 10, 10, 0])
+
+        url = 'http://' + settings.host + ':' + settings.port + '/file/user-picture/' + 'user_' + str(
+            settings.selected_user_id) + '.png'
+        x = requests.get(url)
+        if x.status_code == 200:
+            box_admin_vertical_section_a.add_widget(Widget())
+            box_admin_vertical_section_a.add_widget(
+                AsyncImage(source=url, size_hint=[1, .8]))
+        else:
+            box_admin_vertical_section_a.add_widget(Widget())
+            box_admin_vertical_section_a.add_widget(Image(source="user.png", size_hint=[1, .8]))
+
+        nam = settings.selected_user_name
+        name_surname_btn = Button(
+            text=nam,
+            font_size=30,
+            # on_press=self.no_btn_press,
+            # background_color=[.13, .13, .13],
+            background_normal='button.png',
+            background_down='button.png',
+            size_hint=[1, 1],
+            size=[270, 100],
+        )
+        box_layout_for_btn.add_widget(name_surname_btn)
+        box_admin_vertical_section_a.add_widget(box_layout_for_btn)
+        self.box_layout_horizontal_right_up_side.add_widget(box_admin_vertical_section_a)
 
     def page_2_project_manager_section_a(self):
         box_project_manager_vertical_section_a = BoxLayout(orientation="vertical", size_hint=[.5, 1], padding=[0, 0, 0, 0])
@@ -1143,34 +1335,6 @@ class GeneralPage(AnchorLayout):
             self.box_layout_horizontal_right_up_side.add_widget(Button(text="2 page 5"))
             self.box_layout_horizontal_right_up_side.add_widget(Button(text="3 page 5"))
 
-    def yes_btn_press(self, instance):
-        settings.question_status = 1
-        self.box_layout_general_horizontal_down.clear_widgets()
-        if settings.menuIndex == 1:
-            self.page_1_down_side()
-        elif settings.menuIndex == 2:
-            self.page_2_down_side()
-        elif settings.menuIndex == 3:
-            self.page_3_down_side()
-        elif settings.menuIndex == 4:
-            self.page_4_down_side()
-        elif settings.menuIndex == 5:
-            self.page_5_down_side()
-
-    def no_btn_press(self, instance):
-        settings.question_status = 2
-        self.box_layout_general_horizontal_down.clear_widgets()
-        if settings.menuIndex == 1:
-            self.page_1_down_side()
-        elif settings.menuIndex == 2:
-            self.page_2_down_side()
-        elif settings.menuIndex == 3:
-            self.page_3_down_side()
-        elif settings.menuIndex == 4:
-            self.page_4_down_side()
-        elif settings.menuIndex == 5:
-            self.page_5_down_side()
-
     def up_menu_side(self):
         if settings.role_id == "1":
             #self.box_layout_horizontal_right_up_menu.add_widget(Button(text="Calendar"))
@@ -1199,7 +1363,7 @@ class GeneralPage(AnchorLayout):
             self.menu_right()
 
     def menu_center(self):
-        self.box_layout_search = BoxLayout(orientation="horizontal")
+        self.box_layout_search = BoxLayout(orientation="horizontal", padding=[20, 0, 0, 0])
         self.search_text = TextInput(text="Search", size_hint=[.7, .7],
                                      background_color=[.92, .92, .92, .92], halign='center', font_size='20sp',
                                      multiline=False)
@@ -1338,50 +1502,72 @@ class GeneralPage(AnchorLayout):
         ea_app.update_user_page.show_page()
 
     def admin_load_all_users(self):
-        url = 'http://localhost:3000/api/admin/get-users'
+        url = 'http://' + settings.host + ':' + settings.port + '/api/admin/get-users'
         x = requests.get(url)
         settings.list_of_users = json.loads(x.content)
         print(settings.list_of_users)
 
-    def get_daily_task_status(self):
-        url = 'http://' + settings.host + ':' + settings.port + '/api/user/get-daily-task-status'
-        myobj = '{"userid": "' + str(settings.user_id) + '", "date": "' + '1998-01-01' + '"}'
-        headers = {'Content-type': 'application/json'}
-        x = requests.post(url, data=myobj, headers=headers)
+    def get_average_for_week(self):
+        self.get_last_week()
+        avg_week = 0
+        print(settings.list_employee_for_days)
+        for i in range(len(settings.list_employee_for_days)):
+            if len(settings.list_employee_for_days) == 5:
+                x = settings.list_employee_for_days[i]
+                avg_week = avg_week + float(x)
+
+        settings.employee_average_rating_for_week = str(avg_week / len(settings.list_employee_for_days))
+
+    def get_group(self):
+        url = 'http://' + settings.host + ':' + settings.port + '/api/pm/get-controlled-groups/' + str(settings.user_id) + ''
+        x = requests.get(url)
         if x.status_code == 200:
-            result_server = json.loads(x.content)
-            s = result_server[0]
-            settings.question_status = str(s["rating"])
             print(x.content)
-        else:
-            print(x.content)
-            print("Error: " + x.content)
+            #s = json.loads(x.content)
+            #user_id = str(s["userid"])
+
+    def get_all_groups(self):
+        url = 'http://' + settings.host + ':' + settings.port + '/api/admin/get-all-groups'
+        x = requests.get(url)
+        print(x.content)
+        if x.status_code == 200:
+            settings.list_of_all_groups = json.loads(x.content)
+
+
 
     def get_last_week(self):
         url = 'http://' + settings.host + ':' + settings.port + '/api/user/get-last-week-rating'
-        myobj = '{"userid": "' + str(settings.user_id) + '"}'
+        if settings.role_id == '1':
+            myobj = '{"userid": "' + str(settings.user_id) + '"}'
+        elif settings.role_id == '2':
+            myobj = '{"userid": "' + str(settings.selected_user_id) + '"}'
+        elif settings.role_id == '4':
+            myobj = '{"userid": "' + str(settings.user_id) + '"}'
+
+
         headers = {'Content-type': 'application/json'}
         x = requests.post(url, data=myobj, headers=headers)
-        print(x.content)
         if x.status_code == 200:
             settings.list_user_last_week = json.loads(x.content)
             self.save_rating_to_dist()
-            print(settings.list_user_last_week)
+
         else:
             print("Error: " + x.content)
 
     def save_rating_to_dist(self):
-        if settings.role_id == '1':
-            new_list = []
-            if len(settings.list_user_last_week) >= 5:
-                for i in range(5):
-                    user = settings.list_user_last_week[i]
-                    new_list.append(user['rating'])
-            else:
-                for i in range(len(settings.list_user_last_week)):
-                    user = settings.list_user_last_week[i]
-                    new_list.append(user['rating'])
-            settings.list_employee_for_days = new_list
+        for i in range(len(settings.list_employee_for_days)):
+            settings.list_employee_for_days[i] = 0
+
+        new_list = []
+        if len(settings.list_user_last_week) == 5:
+            for i in range(5):
+                user = settings.list_user_last_week[i]
+                new_list.append(user['rating'])
+
+
+        for i in range(len(new_list)):
+            settings.list_employee_for_days[i] = new_list[i]
+
 
     def change_to_selected_user(self, instance):
         settings.selected_user_email = str(instance.id)
@@ -1412,30 +1598,79 @@ class GeneralPage(AnchorLayout):
                 settings.selected_registration_date = str(user["registrationdate"].split('T')[0])
                 #settings.selected_password = str(user["password"])
 
+    def delete_user(self):
+        url = 'http://' + settings.host + ':' + settings.port + '/api/admin/remove-user'
+        myobj = '{"userid": "' + settings.selected_user_id + '"}'
+        headers = {'Content-type': 'application/json'}
+        response = requests.post(url, headers=headers, data=myobj)
+        if response.status_code == 200:
+            self.box_layout_general_horizontal_down.clear_widgets()
+            self.page_1_down_side()
+
+    def get_task_status_employee(self):
+        date = datetime.datetime.now().date()
+        url = 'http://' + settings.host + ':' + settings.port + '/api/user/get-daily-task-status'
+        myobj = '{"userid": "' + settings.user_id + '", "date": "' + str(date) + '"}'
+        headers = {'Content-type': 'application/json'}
+        x = requests.post(url, data=myobj, headers=headers)
+        if x.status_code == 200:
+            status_dist = json.loads(x.content)
+            settings.question_status = str(status_dist["workfinished"])
+
+    def get_task_status_leader(self):
+        date = datetime.datetime.now().date()
+
+    def yes_btn_press(self):
+        date = datetime.datetime.now().date()
+        yes = '1'
+        url = 'http://' + settings.host + ':' + settings.port + '/api/user/set-daily-question'
+        myobj = '{"userid": "' + settings.user_id + '", "workfinished": "' + yes + '", "date": "' + str(date) + '"}'
+        headers = {'Content-type': 'application/json'}
+        x = requests.post(url, data=myobj, headers=headers)
+        print(x.content)
+
+
+        self.box_layout_general_horizontal_down.clear_widgets()
+        if settings.menuIndex == 1:
+            self.page_1_down_side()
+        elif settings.menuIndex == 2:
+            self.page_2_down_side()
+        elif settings.menuIndex == 3:
+            self.page_3_down_side()
+        elif settings.menuIndex == 4:
+            self.page_4_down_side()
+        elif settings.menuIndex == 5:
+            self.page_5_down_side()
+
+    def no_btn_press(self):
+        date = datetime.datetime.now().date()
+        no = '0'
+        url = 'http://' + settings.host + ':' + settings.port + '/api/user/set-daily-question'
+        myobj = '{"userid": "' + settings.user_id + '", "workfinished": "' + no + '", "date": "' + str(date) + '"}'
+        headers = {'Content-type': 'application/json'}
+        x = requests.post(url, data=myobj, headers=headers)
+        print(x.content)
+        self.box_layout_general_horizontal_down.clear_widgets()
+        if settings.menuIndex == 1:
+            self.page_1_down_side()
+        elif settings.menuIndex == 2:
+            self.page_2_down_side()
+        elif settings.menuIndex == 3:
+            self.page_3_down_side()
+        elif settings.menuIndex == 4:
+            self.page_4_down_side()
+        elif settings.menuIndex == 5:
+            self.page_5_down_side()
+
     def change_color_selecter(self):
         for i in range(len(self.test)):
             if self.test[i].id == settings.selected_user_email:
-                self.test[i].background_color = (0, 1, 0, .9)
+                self.test[i].background_color = (.01, .66, .96, .6)
 
     def change_color_selecter_back(self):
             for i in range(len(self.test)):
                 if self.test[i].id == settings.selected_user_last_email:
                     self.test[i].background_color = (.01, .66, .96, 1)
-
-class MyWidget2(Widget):
-    def __init__(self, **kwargs):
-        super(MyWidget2, self).__init__(**kwargs)
-
-        with self.canvas:
-            Color(0, 1, 0, 1)
-            self.rect = Rectangle(pos=self.pos, size=self.size)
-
-        self.bind(pos=self.update_rect)
-        self.bind(size=self.update_rect)
-
-    def update_rect(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = (self.size[0], self.size[1])
 
 class GraphWidgetForDays(Widget):
     def __init__(self, **kwargs):
@@ -1463,28 +1698,22 @@ class GraphWidgetForDays(Widget):
         posY = pos_y + 10
 
         if settings.role_id == "1":
-            print("User")
-            test = settings.list_employee_for_days
+            list_for_draw = settings.list_employee_for_days
         elif settings.role_id == "2":
-            print("Admin")
-            test = settings.list_employee_for_days
+            list_for_draw = settings.list_employee_for_days
         elif settings.role_id == "3":
-            print("Proj Man")
-            print(settings.user_id)
-            test = settings.list_employee_for_days
+            list_for_draw = settings.list_employee_for_days
         elif settings.role_id == "4":
-            print("Leader")
-            test = settings.list_leader_for_days
+            list_for_draw = settings.list_leader_for_days
         elif settings.role_id == "5":
-            print("Boss")
-            test = settings.list_user_for_days
+            list_for_draw = settings.list_user_for_days
 
         final_list = []
         max_y = 350
         x = 100
         y0 = 0
-        if len(test) == 5:
-            for i in test:
+        if len(list_for_draw) == 5:
+            for i in list_for_draw:
                 final_list.append(i * 14.28)
             y1 = max_y / 100 * final_list[0]
             y2 = max_y / 100 * final_list[1]
@@ -1492,20 +1721,20 @@ class GraphWidgetForDays(Widget):
             y4 = max_y / 100 * final_list[3]
             y5 = max_y / 100 * final_list[4]
 
-        with self.canvas.after:
-            Color(.01, .66, .96, 1)
-            Rectangle(pos=(posX, posY), size=(x, y1))
-            Rectangle(pos=(posX + 100, posY), size=(x, y0))
-            Rectangle(pos=(posX + 200, posY), size=(x, y2))
-            Rectangle(pos=(posX + 300, posY), size=(x, y0))
-            Rectangle(pos=(posX + 400, posY), size=(x, y3))
-            Rectangle(pos=(posX + 500, posY), size=(x, y0))
-            Rectangle(pos=(posX + 600, posY), size=(x, y4))
-            Rectangle(pos=(posX + 700, posY), size=(x, y0))
-            Rectangle(pos=(posX + 800, posY), size=(x, y5))
-            Color(1, 1, 1, 1)
-            Rectangle(pos=(posX, posY), size=(1000, 2))
-            Rectangle(pos=(posX, posY), size=(1, max_y))
+            with self.canvas.after:
+                Color(.01, .66, .96, 1)
+                Rectangle(pos=(posX, posY), size=(x, y1))
+                Rectangle(pos=(posX + 100, posY), size=(x, y0))
+                Rectangle(pos=(posX + 200, posY), size=(x, y2))
+                Rectangle(pos=(posX + 300, posY), size=(x, y0))
+                Rectangle(pos=(posX + 400, posY), size=(x, y3))
+                Rectangle(pos=(posX + 500, posY), size=(x, y0))
+                Rectangle(pos=(posX + 600, posY), size=(x, y4))
+                Rectangle(pos=(posX + 700, posY), size=(x, y0))
+                Rectangle(pos=(posX + 800, posY), size=(x, y5))
+                Color(1, 1, 1, 1)
+                #Rectangle(pos=(posX, posY), size=(1000, 2))
+                Rectangle(pos=(posX, posY), size=(1, max_y))
 
 class GraphWidgetForWeeks(Widget):
     def __init__(self, **kwargs):
@@ -1534,40 +1763,40 @@ class GraphWidgetForWeeks(Widget):
         posY = pos_y + 10
 
         if settings.role_id == "1":
-            test = settings.list_employee_for_weeks
+            list_for_draw = settings.list_employee_for_weeks
         elif settings.role_id == "2":
-            test = settings.list_employee_for_weeks
+            list_for_draw = settings.list_employee_for_weeks
         elif settings.role_id == "3":
-            test = settings.list_employee_for_weeks
+            list_for_draw = settings.list_employee_for_weeks
         elif settings.role_id == "4":
-            test = settings.list_leader_for_weeks
+            list_for_draw = settings.list_leader_for_weeks
         elif settings.role_id == "5":
-            test = settings.list_user_for_weeks
+            list_for_draw = settings.list_user_for_weeks
 
         final_list = []
         max_y = 350
         x = 100
         y0 = 0
-        if len(test) == 4:
-            for i in test:
+        if len(list_for_draw) == 4:
+            for i in list_for_draw:
                 final_list.append(i * 2.85)
             y1 = max_y / 100 * final_list[0]
             y2 = max_y / 100 * final_list[1]
             y3 = max_y / 100 * final_list[2]
             y4 = max_y / 100 * final_list[3]
 
-        with self.canvas.after:
-            Color(.01, .66, .96, 1)
-            Rectangle(pos=(posX, posY), size=(x, y1))
-            Rectangle(pos=(posX + x*1, posY), size=(x, y0))
-            Rectangle(pos=(posX + x*2, posY), size=(x, y2))
-            Rectangle(pos=(posX + x*3, posY), size=(x, y0))
-            Rectangle(pos=(posX + x*4, posY), size=(x, y3))
-            Rectangle(pos=(posX + x*5, posY), size=(x, y0))
-            Rectangle(pos=(posX + x*6, posY), size=(x, y4))
-            Color(1, 1, 1, 1)
-            Rectangle(pos=(posX, posY), size=(x*8, 2))
-            Rectangle(pos=(posX, posY), size=(1, max_y))
+            with self.canvas.after:
+                Color(.01, .66, .96, 1)
+                Rectangle(pos=(posX, posY), size=(x, y1))
+                Rectangle(pos=(posX + x*1, posY), size=(x, y0))
+                Rectangle(pos=(posX + x*2, posY), size=(x, y2))
+                Rectangle(pos=(posX + x*3, posY), size=(x, y0))
+                Rectangle(pos=(posX + x*4, posY), size=(x, y3))
+                Rectangle(pos=(posX + x*5, posY), size=(x, y0))
+                Rectangle(pos=(posX + x*6, posY), size=(x, y4))
+                Color(1, 1, 1, 1)
+                #Rectangle(pos=(posX, posY), size=(x*8, 2))
+                Rectangle(pos=(posX, posY), size=(1, max_y))
 
 class GraphWidgetForMonths(Widget):
     def __init__(self, **kwargs):
@@ -1596,22 +1825,22 @@ class GraphWidgetForMonths(Widget):
         posY = pos_y + 10
 
         if settings.role_id == "1":
-            test = settings.list_employee_for_months
+            list_for_draw = settings.list_employee_for_months
         elif settings.role_id == "2":
-            test = settings.list_employee_for_months
+            list_for_draw = settings.list_employee_for_months
         elif settings.role_id == "3":
-            test = settings.list_employee_for_months
+            list_for_draw = settings.list_employee_for_months
         elif settings.role_id == "4":
-            test = settings.list_leader_for_months
+            list_for_draw = settings.list_leader_for_months
         elif settings.role_id == "5":
-            test = settings.list_user_for_months
+            list_for_draw = settings.list_user_for_months
 
         final_list = []
         max_y = 350
         x = 50
         y0 = 0
-        if len(test) == 12:
-            for i in test:
+        if len(list_for_draw) == 12:
+            for i in list_for_draw:
                 final_list.append(i * 0.71)
             y1 = max_y / 100 * final_list[0]
             y2 = max_y / 100 * final_list[1]
@@ -1625,34 +1854,34 @@ class GraphWidgetForMonths(Widget):
             y10 = max_y / 100 * final_list[9]
             y11 = max_y / 100 * final_list[10]
             y12 = max_y / 100 * final_list[11]
-        with self.canvas.after:
-            Color(.01, .66, .96, 1)
-            Rectangle(pos=(posX, posY), size=(x, y1))
-            Rectangle(pos=(posX + x * 1, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 2, posY), size=(x, y2))
-            Rectangle(pos=(posX + x * 3, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 4, posY), size=(x, y3))
-            Rectangle(pos=(posX + x * 5, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 6, posY), size=(x, y4))
-            Rectangle(pos=(posX + x * 7, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 8, posY), size=(x, y5))
-            Rectangle(pos=(posX + x * 9, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 10, posY), size=(x, y6))
-            Rectangle(pos=(posX + x * 11, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 12, posY), size=(x, y7))
-            Rectangle(pos=(posX + x * 13, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 14, posY), size=(x, y8))
-            Rectangle(pos=(posX + x * 15, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 16, posY), size=(x, y9))
-            Rectangle(pos=(posX + x * 17, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 18, posY), size=(x, y10))
-            Rectangle(pos=(posX + x * 19, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 20, posY), size=(x, y11))
-            Rectangle(pos=(posX + x * 21, posY), size=(x, y0))
-            Rectangle(pos=(posX + x * 22, posY), size=(x, y12))
-            Color(1, 1, 1, 1)
-            Rectangle(pos=(posX, posY), size=(x*24, 2))
-            Rectangle(pos=(posX, posY), size=(1, max_y))
+            with self.canvas.after:
+                Color(.01, .66, .96, 1)
+                Rectangle(pos=(posX, posY), size=(x, y1))
+                Rectangle(pos=(posX + x * 1, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 2, posY), size=(x, y2))
+                Rectangle(pos=(posX + x * 3, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 4, posY), size=(x, y3))
+                Rectangle(pos=(posX + x * 5, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 6, posY), size=(x, y4))
+                Rectangle(pos=(posX + x * 7, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 8, posY), size=(x, y5))
+                Rectangle(pos=(posX + x * 9, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 10, posY), size=(x, y6))
+                Rectangle(pos=(posX + x * 11, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 12, posY), size=(x, y7))
+                Rectangle(pos=(posX + x * 13, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 14, posY), size=(x, y8))
+                Rectangle(pos=(posX + x * 15, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 16, posY), size=(x, y9))
+                Rectangle(pos=(posX + x * 17, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 18, posY), size=(x, y10))
+                Rectangle(pos=(posX + x * 19, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 20, posY), size=(x, y11))
+                Rectangle(pos=(posX + x * 21, posY), size=(x, y0))
+                Rectangle(pos=(posX + x * 22, posY), size=(x, y12))
+                Color(1, 1, 1, 1)
+                #Rectangle(pos=(posX, posY), size=(x*24, 2))
+                Rectangle(pos=(posX, posY), size=(1, max_y))
 
 class RegistrationPage(AnchorLayout):
     loadfile = ObjectProperty(None)
@@ -1701,7 +1930,7 @@ class RegistrationPage(AnchorLayout):
     def page_admin_registration_right_down_side(self):
         box_vertical_section_b = BoxLayout(orientation="horizontal", size_hint=[.7, 1], padding=[40, 0, 0, 0])
         box_horizontal_section = BoxLayout(orientation="horizontal")
-        box_for_btn_vertical = BoxLayout(orientation="vertical", size_hint=[1, .5])
+        box_for_btn_vertical = BoxLayout(orientation="vertical", size_hint=[1, .7])
         box_for_btn_horizontal = BoxLayout(orientation="horizontal")
 
         box_vertical_section_1 = BoxLayout(orientation="vertical", spacing='10px')
@@ -1725,8 +1954,13 @@ class RegistrationPage(AnchorLayout):
                                           halign='center', font_size='20sp', multiline=False)
 
         user_password_lbl = Button(text="Password", font_size=20, background_normal='button.png',
-                                   background_down='button.png', size_hint=[.3, 1])
+                                   background_down='button.png', size_hint=[.3, 1], password=1)
         self.user_password_input = TextInput(text="", size_hint=[.5, 1], background_color=[.92, .92, .92, .92],
+                                             halign='center', font_size='20sp', multiline=False)
+
+        user_password1_lbl = Button(text="Password", font_size=20, background_normal='button.png',
+                                   background_down='button.png', size_hint=[.3, 1], password=1)
+        self.user_password1_input = TextInput(text="", size_hint=[.5, 1], background_color=[.92, .92, .92, .92],
                                              halign='center', font_size='20sp', multiline=False)
 
         user_phone_number_lbl = Button(text="Phone number", font_size=20, background_normal='button.png',
@@ -1749,6 +1983,9 @@ class RegistrationPage(AnchorLayout):
         box_password.add_widget(user_password_lbl)
         box_password.add_widget(self.user_password_input)
 
+        box_password.add_widget(user_password1_lbl)
+        box_password.add_widget(self.user_password1_input)
+
         box_phone_number.add_widget(user_phone_number_lbl)
         box_phone_number.add_widget(self.user_phone_number_input)
 
@@ -1763,41 +2000,42 @@ class RegistrationPage(AnchorLayout):
         box_vertical_section_1.add_widget(Widget())
 
         registration_btn = Button(
-            text="Register a new user",
+            text='Register a user',
             font_size=30,
             background_normal='button.png',
             background_down='button_down.png',
             size_hint=[None, None],
             size=[270, 100],
         )
+        registration_btn.bind(on_release=lambda btn: self.registration_new_user())
+
+        # record_face_btn = Button(
+        #     text='Record face',
+        #     font_size=30,
+        #     background_normal='button.png',
+        #     background_down='button_down.png',
+        #     size_hint=[None, None],
+        #     size=[270, 100],
+        # )
+        # record_face_btn.bind(on_release=lambda btn: self.record_face())
 
         back_btn = Button(
-            text="Back",
+            text='Back',
             font_size=30,
             background_normal='button.png',
             background_down='button_down.png',
             size_hint=[None, None],
             size=[270, 100],
         )
-
-        send_btn = Button(
-            text="Back",
-            font_size=30,
-            background_normal='button.png',
-            background_down='button_down.png',
-            size_hint=[None, None],
-            size=[270, 100],
-        )
-
-        registration_btn.bind(on_release=lambda btn: self.registration_new_user())
         back_btn.bind(on_release=lambda btn: self.load_general_page())
-        send_btn.bind(on_release=lambda btn: self.send_to_server())
 
         box_for_btn_vertical.add_widget(back_btn)
-        box_for_btn_vertical.add_widget(Widget())
+        box_for_btn_vertical.add_widget(BoxLayout(size_hint=[1, .2]))
+        #box_for_btn_vertical.add_widget(record_face_btn)
+        box_for_btn_vertical.add_widget(BoxLayout(size_hint=[1, .2]))
         box_for_btn_vertical.add_widget(registration_btn)
-        box_for_btn_horizontal.add_widget(Widget())
-        box_for_btn_vertical.add_widget(send_btn)
+
+        box_for_btn_horizontal.add_widget(BoxLayout(size_hint=[1, .5]))
         box_for_btn_horizontal.add_widget(box_for_btn_vertical)
         box_vertical_section_2.add_widget(box_for_btn_horizontal)
 
@@ -1807,26 +2045,33 @@ class RegistrationPage(AnchorLayout):
         box_vertical_section_b.add_widget(box_horizontal_section)
         self.box_layout_general_horizontal_down.add_widget(box_vertical_section_b)
 
-    def send_to_server(self):
-        url = 'http://' + settings.host + ':' + settings.port + '/file/upload-user-picture'
+    def add_dataset_to_zip(self):
+        path = 'dataset'
+        list_paths = [os.path.join(path, f) for f in os.listdir(path)]
+        if os._exists(settings.zip_name):
+            os.remove(settings.zip_name)
+        else:
+            newzip = zipfile.ZipFile(settings.zip_name, 'w')
+            for i in list_paths:
+                newzip.write(i)
+            newzip.close()
+
+    def send_zip_to_server(self):
+        url = 'http://' + settings.host + ':' + settings.port + '/file/upload-training-set'
         files = {
-            'file': ('user_' + settings.user_id + '.png', open('user_' + settings.user_id + '.png', 'rb')),
+            'file': (settings.zip_name, open(settings.zip_name, 'rb')),
         }
 
         x = requests.post(url, files=files)
 
-        if x.status_code == 200:
-            while True:
-                try:
-                    os.remove('user_' + settings.user_id + '.png')
-                except:
-                    time.sleep(0.1)
-                finally:
-                    return False
-                    print("Removed")
+    def send_to_server(self, user_id):
+        url = 'http://' + settings.host + ':' + settings.port + '/file/upload-user-picture'
+        files = {
+            'file': ('user_' + user_id + '.png', open('user_' + user_id + '.png', 'rb')),
+        }
 
-        else:
-            print("Error: " + x.content)
+        x = requests.post(url, files=files)
+
 
     def page_admin_registration_right_up_side(self):
         self.select_avatar_for_new_user()
@@ -1918,12 +2163,14 @@ class RegistrationPage(AnchorLayout):
         myobj = '{"name": "' + str(name) + '", "surname": "' + str(surname) + '", "address": "' + str(address) + '", "residencecountry": "' + str(rezidenceCountry) + '", "nationality": "' + str(nationality) + '", "sex": "' + str(sex) + '", "email": "' + str(email) + '", "password": "' + str(password) + '", "phonenumber": "' + str(phoneNumber) + '", "birthdaydate": "' + str(birthdayDate) + '", "roleid": "' + str(roleId) + '"}'
         headers = {'Content-type': 'application/json'}
         x = requests.post(url, data=myobj, headers=headers)
-
+        print(x.content)
         if x.status_code == 200:
             if os.path.isfile("C:/Users/wikto/PycharmProjects/EA/new_user_photo.png") == True:
                 self.rename_and_send_avatar(email)
-            #print(x.content)
-            print("User registered")
+            #self.add_dataset_to_zip()
+            #self.send_zip_to_server()
+            #os.remove(settings.zip_name)
+            #shutil.rmtree('dataset')
             self.load_general_page()
         else:
             print("Error: " + x.content)
@@ -1936,7 +2183,8 @@ class RegistrationPage(AnchorLayout):
             s = json.loads(x.content)
             user_id = str(s["userid"])
             os.rename('new_user_photo.png', 'user_' + user_id + '.png')
-            self.send_to_server()
+            self.send_to_server(user_id)
+            os.remove('user_' + user_id + '.png')
         else:
             print("Error: " + x.content)
 
@@ -1945,6 +2193,8 @@ class RegistrationPage(AnchorLayout):
         if settings.new_user_photo == False:
             self.box_layout_vertical_left_up_side.add_widget(
                 Image(source="user.png", size_hint=[1, .6]))
+            # if os._exists('new_user_photo.png'):
+            #     os.remove('new_user_photo.png')
         else:
             self.box_layout_vertical_left_up_side.add_widget(
                 Image(source="new_user_photo.png", size_hint=[1, .6]))
@@ -1973,7 +2223,7 @@ class RegistrationPage(AnchorLayout):
             print("Wrong role_id")
 
     def menu_center(self):
-        self.box_layout_search = BoxLayout(orientation="horizontal")
+        self.box_layout_search = BoxLayout(orientation="horizontal", padding=[20, 0, 0, 0])
         self.search_text = TextInput(text="Search", size_hint=[.7, .7],
                                      background_color=[.92, .92, .92, .92], halign='center', font_size='20sp',
                                      multiline=False)
@@ -2032,6 +2282,7 @@ class RegistrationPage(AnchorLayout):
         self.box_layout_horizontal_right_up_menu.add_widget(self.box_layout_menu_left)
 
     def load_general_page(self):
+        settings.new_user_photo = False
         ea_app.screen_manager.current = "FirstPageUser"
         ea_app.first_page_user.show_page()
 
@@ -2047,8 +2298,8 @@ class RegistrationPage(AnchorLayout):
     def load(self, path, filename):
         imgPath = str(os.path.join(path, filename[0]))
         self.start_crop(imgPath)
-        self.update_selected_photo()
         self.dismiss_popup()
+        self.update_selected_photo()
 
     def update_selected_photo(self):
         self.box_layout_vertical_left_up_side.clear_widgets()
@@ -2075,7 +2326,30 @@ class RegistrationPage(AnchorLayout):
         im = ImagePIL.open(imgPath)
         im = self.crop(im, size)
         im.putalpha(self.prepare_mask(size, 4))
-        im.save(self.img_new)
+        im.save("new_user_photo.png")
+
+    def record_face(self):
+        if not os.path.exists('dataset'):
+            os.makedirs('dataset')
+        face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+        cap = cv2.VideoCapture(0)
+        uid = settings.selected_user_id
+        sampleNum = 0
+        while True:
+            ret, img = cap.read()
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+            for (x, y, w, h) in faces:
+                sampleNum = sampleNum + 1
+                cv2.imwrite("dataset/User." + str(uid) + "." + str(sampleNum) + ".jpg", gray[y:y + h, x:x + w])
+                cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                cv2.waitKey(100)
+            cv2.imshow('img', img)
+            cv2.waitKey(1);
+            if sampleNum > 40:
+                break
+        cap.release()
+        cv2.destroyAllWindows()
 
 class UpdateUserPage(AnchorLayout):
     loadfile = ObjectProperty(None)
@@ -2125,7 +2399,7 @@ class UpdateUserPage(AnchorLayout):
     def page_admin_registration_right_down_side(self):
         box_vertical_section_b = BoxLayout(orientation="horizontal", size_hint=[.7, 1], padding=[40, 0, 0, 0])
         box_horizontal_section = BoxLayout(orientation="horizontal")
-        box_for_btn_vertical = BoxLayout(orientation="vertical", size_hint=[1, .5])
+        box_for_btn_vertical = BoxLayout(orientation="vertical", size_hint=[1, .7])
         box_for_btn_horizontal = BoxLayout(orientation="horizontal")
 
         box_vertical_section_1 = BoxLayout(orientation="vertical", spacing='10px')
@@ -2194,6 +2468,17 @@ class UpdateUserPage(AnchorLayout):
             size_hint=[None, None],
             size=[270, 100],
         )
+        registration_btn.bind(on_release=lambda btn: self.update_info_user())
+
+        record_face_btn = Button(
+            text="Rerecord face",
+            font_size=30,
+            background_normal='button.png',
+            background_down='button_down.png',
+            size_hint=[None, None],
+            size=[270, 100],
+        )
+        record_face_btn.bind(on_release=lambda btn: self.record_face())
 
         back_btn = Button(
             text="Back",
@@ -2203,14 +2488,17 @@ class UpdateUserPage(AnchorLayout):
             size_hint=[None, None],
             size=[270, 100],
         )
-
-        registration_btn.bind(on_release=lambda btn: self.registration_new_user())
         back_btn.bind(on_release=lambda btn: self.load_general_page())
 
+
+
         box_for_btn_vertical.add_widget(back_btn)
-        box_for_btn_vertical.add_widget(Widget())
+        box_for_btn_vertical.add_widget(BoxLayout(size_hint=[1, .2]))
+        box_for_btn_vertical.add_widget(record_face_btn)
+        box_for_btn_vertical.add_widget(BoxLayout(size_hint=[1, .2]))
         box_for_btn_vertical.add_widget(registration_btn)
-        box_for_btn_horizontal.add_widget(Widget())
+
+        box_for_btn_horizontal.add_widget(BoxLayout(size_hint=[1, .5]))
         box_for_btn_horizontal.add_widget(box_for_btn_vertical)
         box_vertical_section_2.add_widget(box_for_btn_horizontal)
 
@@ -2290,7 +2578,7 @@ class UpdateUserPage(AnchorLayout):
         self.box_layout_horizontal_right_up_side.add_widget(box_vertical_section_b)
 
     def select_avatar_for_new_user(self):
-        box_layout_for_btn = BoxLayout(orientation="horizontal", size_hint=[1, .1], padding=[10, 10, 10, 0])
+        self.box_layout_for_btn = BoxLayout(orientation="horizontal", size_hint=[1, .1], padding=[10, 10, 10, 0])
 
         url = 'http://' + settings.host + ':' + settings.port + '/file/user-picture/' + 'user_' + str(
             settings.selected_user_id) + '.png'
@@ -2299,8 +2587,11 @@ class UpdateUserPage(AnchorLayout):
             if x.status_code == 200:
                 self.box_layout_vertical_left_up_side.add_widget(
                     AsyncImage(source=url, size_hint=[1, .6]))
+                # if os._exists('new_user_photo.png'):
+                #     os.remove('new_user_photo.png')
             else:
-                self.box_layout_vertical_left_up_side.add_widget(Image(source="new_user_photo.png", size_hint=[1, .6]))
+                self.box_layout_vertical_left_up_side.add_widget(Image(source="user.png", size_hint=[1, .6]))
+                os.remove('new_user_photo.png')
         else:
             self.box_layout_vertical_left_up_side.add_widget(
                 Image(source="new_user_photo.png", size_hint=[1, .6]))
@@ -2318,13 +2609,13 @@ class UpdateUserPage(AnchorLayout):
             size=[270, 100],
         )
         select_avatar_btn.bind(on_release=lambda btn: self.show_load())
-        box_layout_for_btn.add_widget(select_avatar_btn)
-        self.box_layout_vertical_left_up_side.add_widget(box_layout_for_btn)
+        self.box_layout_for_btn.add_widget(select_avatar_btn)
+        self.box_layout_vertical_left_up_side.add_widget(self.box_layout_for_btn)
 
     def page_admin_registration_right_up_side(self):
         self.page_admin_registration_right_side_section_b()
 
-    def registration_new_user(self):
+    def update_info_user(self):
         url = 'http://' + settings.host + ':' + settings.port + '/api/admin/update-user-data'
         name = self.user_name_input.text
         userid = settings.selected_user_id
@@ -2345,32 +2636,45 @@ class UpdateUserPage(AnchorLayout):
         x = requests.post(url, data=myobj, headers=headers)
         print(x.content)
         if x.status_code == 200:
-            if os.path.isfile("C:/Users/wikto/PycharmProjects/EA/new_user_photo.png") == True:
+            if os._exists('new_user_photo.png'):
                 self.rename_and_save_avatar(email)
-            print(x.content)
-            print("User registered")
+            self.add_dataset_to_zip()
+            self.send_zip_to_server()
+            os.remove(settings.zip_name)
+            shutil.rmtree('dataset')
             self.load_general_page()
-
         else:
-            print("Error" + x.content)
+            print(x.content)
+
+    def add_dataset_to_zip(self):
+        path = 'dataset'
+        list_paths = [os.path.join(path, f) for f in os.listdir(path)]
+        if os._exists(settings.zip_name):
+            os.remove(settings.zip_name)
+        else:
+            newzip = zipfile.ZipFile(settings.zip_name, 'w')
+            for i in list_paths:
+                newzip.write(i)
+            newzip.close()
+
+    def send_zip_to_server(self):
+        url = 'http://' + settings.host + ':' + settings.port + '/file/upload-training-set'
+        files = {
+            'file': (settings.zip_name, open(settings.zip_name, 'rb')),
+        }
+
+        x = requests.post(url, files=files)
 
     def send_to_server(self, user_id):
         url = 'http://' + settings.host + ':' + settings.port + '/file/upload-user-picture'
         files = {
-            'file': ('user_' + settings.selected_user_id + '.png', open('user_' + settings.selected_user_id + '.png', 'rb')),
+            'file': ('user_' + user_id + '.png', open('user_' + user_id + '.png', 'rb')),
         }
 
         x = requests.post(url, files=files)
 
         if x.status_code == 200:
-            while True:
-                try:
-                    os.remove('user_' + user_id + '.png')
-                except:
-                    time.sleep(0.1)
-                finally:
-                    return False
-                    print("Removed")
+            print("On server:")
         else:
             print("Error: " + x.content)
 
@@ -2381,14 +2685,9 @@ class UpdateUserPage(AnchorLayout):
             print(x.content)
             s = json.loads(x.content)
             user_id = str(s["userid"])
-            if os.path.exists('user_' + user_id + '.png') == False:
-                os.rename('new_user_photo.png', 'user_' + user_id + '.png')
-            else:
-                os.remove('user_' + user_id + '.png')
-                os.rename('new_user_photo.png', 'user_' + user_id + '.png')
-
-
+            os.rename('new_user_photo.png', 'user_' + user_id + '.png')
             self.send_to_server(user_id)
+            os.remove('user_' + user_id + '.png')
         else:
             print("Error: " + x.content)
 
@@ -2402,7 +2701,7 @@ class UpdateUserPage(AnchorLayout):
             print("Wrong role_id")
 
     def menu_center(self):
-        self.box_layout_search = BoxLayout(orientation="horizontal")
+        self.box_layout_search = BoxLayout(orientation="horizontal", padding=[20, 0, 0, 0])
         self.search_text = TextInput(text="Search", size_hint=[.7, .7],
                                      background_color=[.92, .92, .92, .92], halign='center', font_size='20sp',
                                      multiline=False)
@@ -2477,13 +2776,13 @@ class UpdateUserPage(AnchorLayout):
     def load(self, path, filename):
         imgPath = str(os.path.join(path, filename[0]))
         self.start_crop(imgPath)
-        self.update_selected_photo()
         self.dismiss_popup()
 
     def update_selected_photo(self):
-        settings.new_user_photo = True
         self.box_layout_vertical_left_up_side.clear_widgets()
+        settings.new_user_photo = True
         self.select_avatar_for_new_user()
+        print("update")
 
     # Crop image and save
     def prepare_mask(self, size, antialias=2):
@@ -2508,11 +2807,29 @@ class UpdateUserPage(AnchorLayout):
         im.save("new_user_photo.png")
         self.update_selected_photo()
 
-    # def update_selected_photo(self):
-    #     settings.new_user_photo = True
-    #     #self.box_layout_vertical_left_up_side.clear_widgets()
-    #     #self.select_avatar_for_new_user()
 
+    def record_face(self):
+        if not os.path.exists('dataset'):
+            os.makedirs('dataset')
+        face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+        cap = cv2.VideoCapture(0)
+        uid = settings.selected_user_id
+        sampleNum = 0
+        while True:
+            ret, img = cap.read()
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+            for (x, y, w, h) in faces:
+                sampleNum = sampleNum + 1
+                cv2.imwrite("dataset/User." + str(uid) + "." + str(sampleNum) + ".jpg", gray[y:y + h, x:x + w])
+                cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                cv2.waitKey(100)
+            cv2.imshow('img', img)
+            cv2.waitKey(1);
+            if sampleNum > 40:
+                break
+        cap.release()
+        cv2.destroyAllWindows()
 
 class ShowUserInfo(AnchorLayout):
     def __init__(self, **kwargs):
@@ -2553,6 +2870,312 @@ class ShowUserInfo(AnchorLayout):
 
         self.add_widget(self.box_layout_general_vertical)
 
+class Group_info(AnchorLayout):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def show_page(self):
+        size_window = Window.size
+        self.canvas.add(Color(.13, .13, .13, ))
+        self.canvas.add(Rectangle(size=size_window))
+
+        self.box_layout_general_vertical = BoxLayout(orientation="vertical")
+        self.box_layout_general_horizontal_up = BoxLayout(orientation="horizontal", padding=[20, 10])
+        self.box_layout_general_horizontal_down = BoxLayout(orientation="horizontal", padding=[20, 10])
+
+        self.box_layout_general_vertical_left = BoxLayout(orientation="vertical", size_hint=(.3, 1))
+        self.box_layout_general_vertical_right = BoxLayout(orientation="vertical", size_hint=(.7, 1))
+
+        self.box_layout_horizontal_left_up_menu = BoxLayout(orientation="horizontal", size_hint=(1, .05))
+        self.box_layout_vertical_left_up_side = BoxLayout(orientation="vertical", size_hint=(1, .45))
+
+        self.box_layout_horizontal_right_up_menu = BoxLayout(orientation="horizontal", size_hint=(1, .05))
+        self.box_layout_horizontal_right_up_side = BoxLayout(orientation="horizontal", size_hint=(1, .45))
+
+        self.page_all_avatar()
+        self.page_1_admin_down_side()
+        self.page_1_project_manager_section_a()
+        self.page_1_project_manager_section_b()
+        self.up_menu_side()
+
+
+        self.box_layout_general_horizontal_up.add_widget(self.box_layout_general_vertical_left)  # Left general side
+        self.box_layout_general_vertical_left.add_widget(self.box_layout_horizontal_left_up_menu)
+        self.box_layout_general_vertical_left.add_widget(self.box_layout_vertical_left_up_side)
+
+        self.box_layout_general_horizontal_up.add_widget(self.box_layout_general_vertical_right)  # Right general side
+        self.box_layout_general_vertical_right.add_widget(self.box_layout_horizontal_right_up_menu)
+        self.box_layout_general_vertical_right.add_widget(self.box_layout_horizontal_right_up_side)
+
+        self.box_layout_general_vertical.add_widget(self.box_layout_general_horizontal_up)
+        self.box_layout_general_vertical.add_widget(self.box_layout_general_horizontal_down)
+
+        self.add_widget(self.box_layout_general_vertical)
+
+
+    def page_all_avatar(self):
+        box_layout_for_btn = BoxLayout(orientation="horizontal", size_hint=[1, .1], padding=[10, 10, 10, 0])
+        self.role_lbl = Label(text="", text_size=self.size, valign="middle", size_hint=[0, 1], halign='left',
+                              font_size='15sp')
+        self.box_layout_horizontal_left_up_menu.add_widget(self.role_lbl)
+
+        url = 'http://' + settings.host + ':' + settings.port + '/file/user-picture/' + 'user_' + settings.user_id + '.png'
+        x = requests.get(url)
+        if x.status_code == 200:
+            self.box_layout_vertical_left_up_side.add_widget(
+                AsyncImage(source=url, size_hint=[1, .6]))
+        else:
+            self.box_layout_vertical_left_up_side.add_widget(Image(source="user.png", size_hint=[1, .6]))
+
+        nam = settings.name + '  ' + settings.surname
+        name_surname_btn = Button(
+            text=nam,
+            font_size=30,
+            # on_press=self.no_btn_press,
+            # background_color=[.13, .13, .13],
+            background_normal='button.png',
+            background_down='button.png',
+            size_hint=[1, 1],
+        )
+        box_layout_for_btn.add_widget(name_surname_btn)
+        self.box_layout_vertical_left_up_side.add_widget(box_layout_for_btn)
+        self.page_all_role()
+
+    def page_1_admin_down_side(self):
+        self.admin_load_all_users()
+        bx_vertical_down_right_side = BoxLayout(orientation="vertical", size_hint=[1, 1])
+        bx_header = BoxLayout(orientation="horizontal", size_hint=[1, .07])
+        bx_content = BoxLayout(orientation="horizontal", size_hint=[1, .93])
+        bx_header.add_widget(Button(text="Id", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        bx_header.add_widget(Button(text="Name", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        bx_header.add_widget(Button(text="Surname", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        bx_header.add_widget(Button(text="Registration date", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        bx_header.add_widget(Button(text="Email", size_hint=[1, None], size=[0, 40], font_size=30,
+                                    background_color=(0, 0, 0, 1), background_normal=''))
+        layout = GridLayout(cols=1, padding=10, spacing=10,
+                            size_hint=(1, None), width=500)
+
+
+        layout.bind(minimum_height=layout.setter('height'))
+
+        self.test = []
+
+        for i in range(len(settings.list_of_users)):
+            item = settings.list_of_users[i]
+            if settings.user_id != str(item["userid"]):
+                bx_item = BoxLayout(orientation="horizontal", size=(0, 40),
+                                    size_hint=(1, None))
+
+
+                btn = Button(text=str(item["userid"]), on_press=self.change_to_selected_user, font_size=25,
+                             id=str(item["email"]),
+                             background_color=(.01, .66, .96, 1), background_normal='')
+                self.test.append(btn)
+                bx_item.add_widget(btn)
+                btn = Button(text=str(item["name"]), on_press=self.change_to_selected_user, font_size=25,
+                             id=str(item["email"]),
+                             background_color=(.01, .66, .96, 1), background_normal='')
+                self.test.append(btn)
+                bx_item.add_widget(btn)
+                btn = Button(text=str(item["surname"]), on_press=self.change_to_selected_user, font_size=25,
+                             id=str(item["email"]),
+                             background_color=(.01, .66, .96, 1), background_normal='')
+
+                self.test.append(btn)
+                bx_item.add_widget(btn)
+                btn = Button(text=str(item["registrationdate"].split('T')[0]), font_size=25, on_press=self.change_to_selected_user,
+                             id=str(item["email"].split('T')[0]),
+                             background_color=(.01, .66, .96, 1), background_normal='')
+                self.test.append(btn)
+                bx_item.add_widget(btn)
+                btn = Button(text=str(item["email"]), font_size=25, on_press=self.change_to_selected_user,
+                             id=str(item["email"]),
+                             background_color=(.01, .66, .96, 1), background_normal='')
+
+                self.test.append(btn)
+                bx_item.add_widget(btn)
+                layout.add_widget(bx_item)
+
+
+        root = ScrollView(size_hint=(1, 1),
+                          pos_hint={'center_x': .5, 'center_y': .5}, do_scroll_x=False)
+        root.add_widget(layout)
+        bx_content.add_widget(root)
+
+        bx_vertical_down_right_side.add_widget(bx_header)
+        bx_vertical_down_right_side.add_widget(bx_content)
+
+        self.change_color_selecter()
+        self.box_layout_general_horizontal_down.add_widget(bx_vertical_down_right_side)
+
+
+    def page_1_project_manager_section_a(self):
+        box_project_manager_vertical_section_a = BoxLayout(orientation="vertical", size_hint=[.5, 1], padding=[0, 0, 0, 0])
+        box_layout_for_btn = BoxLayout(orientation="horizontal", size_hint=[1, .28], padding=[10, 10, 10, 0])
+
+        if os.path.isfile("C:/Users/wikto/PycharmProjects/EA/user_" + str(settings.pm_selected_group_id) + ".png") == False:
+            box_project_manager_vertical_section_a.add_widget(Widget())
+            box_project_manager_vertical_section_a.add_widget(
+                Image(source="user.png", size_hint=[1, .8]))
+        else:
+            box_project_manager_vertical_section_a.add_widget(Widget())
+            box_project_manager_vertical_section_a.add_widget(
+                Image(source="user_" + str(settings.selected_user_id) + ".png", size_hint=[1, .8]))
+        nam = settings.pm_selected_group_leader_name + "  " + settings.pm_selected_group_leader_surname
+        name_surname_btn = Button(
+            text=nam,
+            font_size=30,
+            # on_press=self.no_btn_press,
+            # background_color=[.13, .13, .13],
+            background_normal='button.png',
+            background_down='button.png',
+            size_hint=[1, 1],
+            size=[270, 100],
+        )
+        box_layout_for_btn.add_widget(name_surname_btn)
+        box_project_manager_vertical_section_a.add_widget(box_layout_for_btn)
+        self.box_layout_horizontal_right_up_side.add_widget(box_project_manager_vertical_section_a)
+
+    def page_1_project_manager_section_b(self):
+        box_vertical_section_b = BoxLayout(orientation="horizontal")
+        box_horizontal_section = BoxLayout(orientation="horizontal")
+        box_vertical_section_1 = BoxLayout(orientation="vertical", size_hint=[.5, 1])
+        box_vertical_section_2 = BoxLayout(orientation="vertical", size_hint=[.5, 1])
+
+        group_name_btn = Button(
+            text="Name of group",
+            font_size=30,
+            background_normal='button.png',
+            background_down='button.png',
+            size_hint=[1, None],
+            size=[0, 100],
+        )
+        box_vertical_section_1.add_widget(BoxLayout(size_hint=[1, .3]))
+        box_vertical_section_1.add_widget(group_name_btn)
+        box_vertical_section_1.add_widget(BoxLayout(size_hint=[1, .1]))
+        group_description_btn = Button(
+            text="Description",
+            font_size=30,
+            background_normal='button.png',
+            background_down='button.png',
+            size_hint=[1, 1],
+        )
+
+        box_vertical_section_1.add_widget(group_description_btn)
+
+        group_name_btn = Button(
+            text=settings.pm_selected_group_name,
+            font_size=30,
+            background_color=(.01, .66, .96, 1),
+            background_normal='',
+            size_hint=[1, None],
+            size=[0, 100],
+        )
+        box_vertical_section_2.add_widget(BoxLayout(size_hint=[1, .3]))
+        box_vertical_section_2.add_widget(group_name_btn)
+        box_vertical_section_2.add_widget(BoxLayout(size_hint=[1, .1]))
+        group_description_btn = Button(
+            text=settings.pm_selected_group_description,
+            font_size=30,
+            # on_press=self.no_btn_press,
+            background_color=(.01, .66, .96, 1),
+            background_normal='',
+            # background_down='button.png',
+            size_hint=[1, 1],
+
+        )
+
+        box_vertical_section_2.add_widget(group_description_btn)
+
+        box_horizontal_section.add_widget(box_vertical_section_1)
+        box_horizontal_section.add_widget(box_vertical_section_2)
+
+        box_vertical_section_b.add_widget(box_horizontal_section)
+        self.box_layout_horizontal_right_up_side.add_widget(box_vertical_section_b)
+
+    def up_menu_side(self):
+        self.calendar_left()
+        self.menu_center()
+        self.menu_right()
+
+    def menu_center(self):
+        self.box_layout_search = BoxLayout(orientation="horizontal", padding=[20, 0, 0, 0])
+        self.search_text = TextInput(text="Search", size_hint=[.7, .7],
+                                     background_color=[.92, .92, .92, .92], halign='center', font_size='20sp',
+                                     multiline=False)
+        self.box_layout_search.add_widget(self.search_text)
+
+        self.search_btn = Button(
+            text="Go",
+            font_size=30,
+            on_press=self.search_btn_press,
+            # background_color=[.13, .13, .13, .13],
+            background_normal='button.png',
+            background_down='button_down.png',
+            size_hint=[.3, .7],
+        )
+
+        self.box_layout_search.add_widget(self.search_btn)
+        self.box_layout_horizontal_right_up_menu.add_widget(self.box_layout_search)
+
+    def search_btn_press(self, instance):
+        print("Search result")
+
+    def menu_right(self):
+        self.box_layout_menu_right = BoxLayout(orientation="horizontal")
+        self.dropdown = DropDown()
+        for index in range(5):
+            if index == 0:
+                name_of_page = 'General'
+            elif index == 1:
+                name_of_page = 'Days'
+            elif index == 2:
+                name_of_page = 'Weeks'
+            elif index == 3:
+                name_of_page = 'Months'
+            elif index == 4:
+                name_of_page = 'Years'
+
+            self.dropdownButton= Button(text=name_of_page, size_hint_y=None, height=44,
+                         font_size=30,
+                         background_color=[0, 0, 0, .8],
+                         #background_normal='button.png',
+                         background_down='button_down.png',
+                         size_hint=[1, None],
+                         )
+            self.dropdownButton.bind(on_release=lambda dropdownButton: self.dropdown.select(dropdownButton.text))
+            if index == 0:
+                self.dropdownButton.bind(on_release=lambda dropdownButton: self.page_first())
+            elif index == 1:
+                self.dropdownButton.bind(on_release=lambda dropdownButton: self.page_second())
+            elif index == 2:
+                self.dropdownButton.bind(on_release=lambda dropdownButton: self.page_third())
+            elif index == 3:
+                self.dropdownButton.bind(on_release=lambda dropdownButton: self.page_fourth())
+            elif index == 4:
+                self.dropdownButton.bind(on_release=lambda dropdownButton: self.page_fifth())
+
+            self.dropdown.add_widget(self.dropdownButton)
+
+        mainbutton = Button(text='General',
+                            font_size=30,
+                            #background_color=[.13, .13, .13, .13],
+                            background_normal='button_menu.png',
+                            background_down='button_down.png',
+                            size_hint=[.7, .7],
+                            )
+
+        mainbutton.bind(on_release=self.dropdown.open)
+
+        self.dropdown.bind(on_select=lambda instance, x: setattr(mainbutton, 'text', x))
+        self.box_layout_menu_right.add_widget(Widget())
+        self.box_layout_menu_right.add_widget(mainbutton)
+        self.box_layout_horizontal_right_up_menu.add_widget(self.box_layout_menu_right)
+
 class EmployeeAdvisor(App):
     def build(self):
         self.screen_manager = ScreenManager()
@@ -2587,6 +3210,10 @@ class EmployeeAdvisor(App):
         screen.add_widget(self.show_user_info_page)
         self.screen_manager.add_widget(screen)
 
+        self.group_info_page = Group_info()
+        screen = Screen(name="UpdateUserPage")
+        screen.add_widget(self.group_info_page)
+        self.screen_manager.add_widget(screen)
 
         return self.screen_manager
 
