@@ -1,5 +1,5 @@
-host = "26.26.247.174"
-#host = "localhost"
+#host = "26.26.247.174"
+host = "localhost"
 port = "3000"
 
 

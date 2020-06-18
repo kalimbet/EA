@@ -1939,6 +1939,7 @@ class RegistrationPage(AnchorLayout):
         box_sex = BoxLayout(orientation="horizontal", size_hint=[1, None], size=(0, 50), padding=(0, 15, 0, 0))
         box_email = BoxLayout(orientation="horizontal", size_hint=[1, None], size=(0, 50), padding=(0, 15, 0, 0))
         box_password = BoxLayout(orientation="horizontal", size_hint=[1, None], size=(0, 50), padding=(0, 15, 0, 0))
+        box_password_1 = BoxLayout(orientation="horizontal", size_hint=[1, None], size=(0, 50), padding=(0, 15, 0, 0))
         box_phone_number = BoxLayout(orientation="horizontal", size_hint=[1, None], size=(0, 50), padding=(0, 15, 0, 0))
         box_birthday_date = BoxLayout(orientation="horizontal", size_hint=[1, None], size=(0, 50),
                                       padding=(0, 15, 0, 0))
@@ -1954,14 +1955,14 @@ class RegistrationPage(AnchorLayout):
                                           halign='center', font_size='20sp', multiline=False)
 
         user_password_lbl = Button(text="Password", font_size=20, background_normal='button.png',
-                                   background_down='button.png', size_hint=[.3, 1], password=1)
+                                   background_down='button.png', size_hint=[.3, 1])
         self.user_password_input = TextInput(text="", size_hint=[.5, 1], background_color=[.92, .92, .92, .92],
-                                             halign='center', font_size='20sp', multiline=False)
+                                             halign='center', font_size='20sp', multiline=False, password=1)
 
-        user_password1_lbl = Button(text="Password", font_size=20, background_normal='button.png',
-                                   background_down='button.png', size_hint=[.3, 1], password=1)
-        self.user_password1_input = TextInput(text="", size_hint=[.5, 1], background_color=[.92, .92, .92, .92],
-                                             halign='center', font_size='20sp', multiline=False)
+        user_password_1_lbl = Button(text="Confirm password", font_size=20, background_normal='button.png',
+                                   background_down='button.png', size_hint=[.3, 1])
+        self.user_password_1_input = TextInput(text="", size_hint=[.5, 1], background_color=[.92, .92, .92, .92],
+                                             halign='center', font_size='20sp', multiline=False, password=1)
 
         user_phone_number_lbl = Button(text="Phone number", font_size=20, background_normal='button.png',
                                        background_down='button.png', size_hint=[.3, 1])
@@ -1983,8 +1984,8 @@ class RegistrationPage(AnchorLayout):
         box_password.add_widget(user_password_lbl)
         box_password.add_widget(self.user_password_input)
 
-        box_password.add_widget(user_password1_lbl)
-        box_password.add_widget(self.user_password1_input)
+        box_password_1.add_widget(user_password_1_lbl)
+        box_password_1.add_widget(self.user_password_1_input)
 
         box_phone_number.add_widget(user_phone_number_lbl)
         box_phone_number.add_widget(self.user_phone_number_input)
@@ -1995,6 +1996,7 @@ class RegistrationPage(AnchorLayout):
         box_vertical_section_1.add_widget(box_sex)
         box_vertical_section_1.add_widget(box_email)
         box_vertical_section_1.add_widget(box_password)
+        box_vertical_section_1.add_widget(box_password_1)
         box_vertical_section_1.add_widget(box_phone_number)
         box_vertical_section_1.add_widget(box_birthday_date)
         box_vertical_section_1.add_widget(Widget())
